@@ -1,0 +1,6 @@
+# Frontend – wird nicht mit auf GitHub hochgeladen
+frontend/
+
+# Python
+__pycache__/
+*.pyc
