@@ -1,7 +1,7 @@
 """
 Board API Views.
 
-GET /api/boards/: list boards. POST /api/boards/: create board with members.
+GET /api/boards/: list. POST: create. PATCH: update. DELETE: delete (owner only).
 """
 
 from django.db.models import Count, Q
@@ -43,6 +43,18 @@ def _get_board_or_raise(request, pk):
     return board
 
 
+def _get_board_owner_or_raise(request, pk):
+    """Return board by pk or raise NotFound/403. Only owner may proceed."""
+    board = Board.objects.filter(pk=pk).first()
+    if not board:
+        raise NotFound("Board not found.")
+    if board.owner_id != request.user.pk:
+        raise PermissionDenied(
+            "You must be the owner of the board to delete it."
+        )
+    return board
+
+
 def _annotate_board_counts(queryset):
     """Add member_count, ticket_count, tasks_to_do_count, tasks_high_prio_count."""
     return queryset.annotate(
@@ -68,7 +80,7 @@ class BoardViewSet(viewsets.ModelViewSet):
     """
 
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "patch", "head", "options"]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         """Boards the user owns or is a member of, with annotated counts."""
@@ -127,3 +139,14 @@ class BoardViewSet(viewsets.ModelViewSet):
             board_patch_response_data(board),
             status=status.HTTP_200_OK,
         )
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        DELETE /api/boards/{id}/: delete board (owner only).
+
+        204 on success. 403 if not owner. 404 if board not found.
+        Cascades: tasks and comments are removed.
+        """
+        board = _get_board_owner_or_raise(request, kwargs["pk"])
+        board.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
