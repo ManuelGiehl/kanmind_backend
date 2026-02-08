@@ -23,7 +23,11 @@ if not SECRET_KEY:
     )
 
 DEBUG = getenv("DEBUG", "True").lower() in ("true", "1", "yes")
-ALLOWED_HOSTS = getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+    if h.strip()
+]
 
 
 # Application definition
