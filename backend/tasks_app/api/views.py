@@ -1,6 +1,43 @@
 """
 Tasks API Views.
 
-ViewSets/APIViews for task CRUD and list endpoints.
+GET /api/tasks/assigned-to-me/: tasks where user is assignee or reviewer.
 """
-from rest_framework import viewsets
+
+from django.db.models import Count, Q
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from tasks_app.models import Task
+
+from .serializers import TaskAssignedSerializer
+
+
+def _assigned_to_user_queryset(user):
+    """Tasks where user is assignee or reviewer, with comments_count."""
+    return (
+        Task.objects.filter(Q(assignee=user) | Q(reviewer=user))
+        .select_related("assignee", "reviewer")
+        .annotate(comments_count=Count("comments"))
+        .order_by("-id")
+    )
+
+
+class AssignedToMeView(APIView):
+    """
+    GET /api/tasks/assigned-to-me/.
+
+    Returns tasks assigned to the authenticated user as assignee or reviewer.
+    Requires auth. 200 with list of tasks (id, board, title, description,
+    status, priority, assignee, reviewer, due_date, comments_count).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Return list of tasks for current user as assignee or reviewer."""
+        qs = _assigned_to_user_queryset(request.user)
+        serializer = TaskAssignedSerializer(qs, many=True)
+        return Response(serializer.data)

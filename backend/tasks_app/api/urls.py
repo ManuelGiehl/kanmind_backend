@@ -1,10 +1,14 @@
 """
 Tasks API URL routes.
 
-Maps task endpoints under /api/tasks/.
+Maps task endpoints under /api/tasks/ (resource-oriented).
 """
 from django.urls import path
 
+from .views import AssignedToMeView
+
 app_name = "tasks_api"
 
-urlpatterns = []
+urlpatterns = [
+    path("assigned-to-me/", AssignedToMeView.as_view()),
+]
