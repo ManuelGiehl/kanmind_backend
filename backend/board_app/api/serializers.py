@@ -76,7 +76,7 @@ class BoardCreateSerializer(serializers.Serializer):
         missing = set(value) - existing
         if missing:
             raise serializers.ValidationError(
-                "Ungültige Benutzer-IDs: " + ", ".join(str(pk) for pk in sorted(missing))
+                "Invalid user IDs: " + ", ".join(str(pk) for pk in sorted(missing))
             )
         return value
 
@@ -120,6 +120,63 @@ class BoardDetailSerializer(serializers.Serializer):
             comments_count=Count("comments"),
         )
         return TaskDetailSerializer(qs, many=True).data
+
+
+class BoardUpdateSerializer(serializers.Serializer):
+    """
+    PATCH /api/boards/{id}/: update title and/or members.
+
+    Members list replaces current members (unmentioned are removed).
+    """
+
+    title = serializers.CharField(max_length=255, required=False)
+    members = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=True,
+        required=False,
+    )
+
+    def validate_members(self, value):
+        """Ensure all member IDs are existing user IDs."""
+        if value is None:
+            return value
+        existing = set(User.objects.filter(pk__in=value).values_list("pk", flat=True))
+        missing = set(value) - existing
+        if missing:
+            raise serializers.ValidationError(
+                "Invalid user IDs: " + ", ".join(str(pk) for pk in sorted(missing))
+            )
+        return value
+
+    def update(self, instance, validated_data):
+        """Update board title and set members to given list (skip owner)."""
+        if "title" in validated_data:
+            instance.title = validated_data["title"]
+            instance.save(update_fields=["title"])
+        if "members" in validated_data:
+            _set_board_members(instance, validated_data["members"])
+        return instance
+
+
+def _set_board_members(board, user_ids):
+    """Set board members to exactly user_ids; remove others, skip owner."""
+    board.members.exclude(user_id__in=user_ids).delete()
+    for uid in user_ids or []:
+        if uid != board.owner_id:
+            BoardMember.objects.get_or_create(board=board, user_id=uid)
+
+
+def board_patch_response_data(board):
+    """Build PATCH response: id, title, owner_data, members_data."""
+    board.refresh_from_db()
+    owner = board.owner
+    members = [m.user for m in board.members.select_related("user")]
+    return {
+        "id": board.id,
+        "title": board.title,
+        "owner_data": UserMiniSerializer(owner).data,
+        "members_data": UserMiniSerializer(members, many=True).data,
+    }
 
 
 class BoardListSerializer(serializers.Serializer):

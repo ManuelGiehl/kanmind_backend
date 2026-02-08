@@ -19,6 +19,8 @@ from .serializers import (
     BoardCreateSerializer,
     BoardDetailSerializer,
     BoardListSerializer,
+    BoardUpdateSerializer,
+    board_patch_response_data,
 )
 
 
@@ -27,6 +29,18 @@ def _user_can_access_board(user, board):
     if board.owner_id == user.pk:
         return True
     return board.members.filter(user=user).exists()
+
+
+def _get_board_or_raise(request, pk):
+    """Return board by pk or raise NotFound or PermissionDenied."""
+    board = Board.objects.filter(pk=pk).first()
+    if not board:
+        raise NotFound("Board not found.")
+    if not _user_can_access_board(request.user, board):
+        raise PermissionDenied(
+            "You must be a member of the board or the owner."
+        )
+    return board
 
 
 def _annotate_board_counts(queryset):
@@ -54,7 +68,7 @@ class BoardViewSet(viewsets.ModelViewSet):
     """
 
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "head", "options"]
+    http_method_names = ["get", "post", "patch", "head", "options"]
 
     def get_queryset(self):
         """Boards the user owns or is a member of, with annotated counts."""
@@ -65,11 +79,13 @@ class BoardViewSet(viewsets.ModelViewSet):
         return _annotate_board_counts(base)
 
     def get_serializer_class(self):
-        """Create/list/detail serializers by action."""
+        """Create/list/detail/update serializers by action."""
         if self.action == "create":
             return BoardCreateSerializer
         if self.action == "retrieve":
             return BoardDetailSerializer
+        if self.action in ("partial_update", "update"):
+            return BoardUpdateSerializer
         return BoardListSerializer
 
     def retrieve(self, request, *args, **kwargs):
@@ -78,13 +94,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         404 if board not found, 403 if user is not owner or member.
         """
-        board = Board.objects.filter(pk=kwargs["pk"]).first()
-        if not board:
-            raise NotFound("Board nicht gefunden.")
-        if not _user_can_access_board(request.user, board):
-            raise PermissionDenied(
-                "Sie müssen Mitglied des Boards oder Eigentümer sein."
-            )
+        board = _get_board_or_raise(request, kwargs["pk"])
         serializer = BoardDetailSerializer(board)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -99,3 +109,21 @@ class BoardViewSet(viewsets.ModelViewSet):
         annotated = _annotate_board_counts(Board.objects.filter(pk=board.pk)).first()
         out = BoardListSerializer(annotated).data
         return Response(out, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        PATCH /api/boards/{id}/: update title and/or members.
+
+        404 if board not found, 403 if not owner or member.
+        Response: id, title, owner_data, members_data (200).
+        """
+        board = _get_board_or_raise(request, kwargs["pk"])
+        serializer = BoardUpdateSerializer(
+            board, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            board_patch_response_data(board),
+            status=status.HTTP_200_OK,
+        )
