@@ -1,7 +1,7 @@
 """
 Tasks app models.
 
-Task: a task/ticket on a board (status, priority for list counts).
+Task: a task/ticket on a board. Comment: for comments_count on tasks.
 """
 
 from django.conf import settings
@@ -10,12 +10,13 @@ from django.db import models
 
 class Task(models.Model):
     """
-    A task on a board. Used for ticket_count and status/priority counts.
+    A task on a board (title, description, status, priority, assignee, reviewer).
     """
 
     class Status(models.TextChoices):
         TO_DO = "to_do", "To Do"
         IN_PROGRESS = "in_progress", "In Progress"
+        REVIEW = "review", "Review"
         DONE = "done", "Done"
 
     class Priority(models.TextChoices):
@@ -24,6 +25,7 @@ class Task(models.Model):
         HIGH = "high", "High"
 
     title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
     board = models.ForeignKey(
         "board_app.Board",
         on_delete=models.CASCADE,
@@ -39,6 +41,21 @@ class Task(models.Model):
         choices=Priority.choices,
         default=Priority.MEDIUM,
     )
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_tasks",
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewing_tasks",
+    )
+    due_date = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
@@ -47,3 +64,27 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Comment(models.Model):
+    """Comment on a task; used for comments_count."""
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="task_comments",
+    )
+    text = models.TextField()
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "comment"
+        verbose_name_plural = "comments"
+
+    def __str__(self):
+        return f"Comment on task {self.task_id}"

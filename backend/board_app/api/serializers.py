@@ -5,12 +5,52 @@ Explicit fields for list/detail (checklist: no __all__).
 """
 
 from django.contrib.auth import get_user_model
+from django.db.models import Count
 
 from rest_framework import serializers
 
 from board_app.models import Board, BoardMember
+from tasks_app.models import Task
 
 User = get_user_model()
+
+
+def _user_fullname(user):
+    """Return full name from first_name + last_name, fallback to username."""
+    if not user:
+        return None
+    full = f"{user.first_name} {user.last_name}".strip()
+    return full or user.username
+
+
+class UserMiniSerializer(serializers.Serializer):
+    """Minimal user for members, assignee, reviewer: id, email, fullname."""
+
+    id = serializers.IntegerField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    fullname = serializers.SerializerMethodField()
+
+    def get_fullname(self, obj):
+        return _user_fullname(obj)
+
+
+class TaskDetailSerializer(serializers.Serializer):
+    """
+    Task in board detail: id, title, description, status, priority,
+    assignee, reviewer, due_date, comments_count.
+    """
+
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    description = serializers.CharField(read_only=True, allow_blank=True)
+    status = serializers.CharField(read_only=True)
+    priority = serializers.CharField(read_only=True)
+    assignee = UserMiniSerializer(read_only=True, allow_null=True)
+    reviewer = UserMiniSerializer(read_only=True, allow_null=True)
+    due_date = serializers.DateField(
+        format="%Y-%m-%d", read_only=True, allow_null=True
+    )
+    comments_count = serializers.IntegerField(read_only=True, default=0)
 
 
 class BoardCreateSerializer(serializers.Serializer):
@@ -54,6 +94,32 @@ class BoardCreateSerializer(serializers.Serializer):
                     user_id=user_id,
                 )
         return board
+
+
+class BoardDetailSerializer(serializers.Serializer):
+    """
+    GET /api/boards/{id}/: board with members and tasks.
+
+    Fields: id, title, owner_id, members (list of user mini), tasks (list).
+    """
+
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    owner_id = serializers.IntegerField(read_only=True)
+    members = serializers.SerializerMethodField()
+    tasks = serializers.SerializerMethodField()
+
+    def get_members(self, obj):
+        """Board members as list of {id, email, fullname}."""
+        users = [m.user for m in obj.members.select_related("user")]
+        return UserMiniSerializer(users, many=True).data
+
+    def get_tasks(self, obj):
+        """Tasks with assignee, reviewer, comments_count."""
+        qs = obj.tasks.select_related("assignee", "reviewer").annotate(
+            comments_count=Count("comments"),
+        )
+        return TaskDetailSerializer(qs, many=True).data
 
 
 class BoardListSerializer(serializers.Serializer):

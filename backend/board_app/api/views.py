@@ -10,10 +10,23 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from rest_framework.exceptions import NotFound, PermissionDenied
+
 from board_app.models import Board
 from tasks_app.models import Task
 
-from .serializers import BoardCreateSerializer, BoardListSerializer
+from .serializers import (
+    BoardCreateSerializer,
+    BoardDetailSerializer,
+    BoardListSerializer,
+)
+
+
+def _user_can_access_board(user, board):
+    """True if user is owner or member of the board."""
+    if board.owner_id == user.pk:
+        return True
+    return board.members.filter(user=user).exists()
 
 
 def _annotate_board_counts(queryset):
@@ -52,10 +65,28 @@ class BoardViewSet(viewsets.ModelViewSet):
         return _annotate_board_counts(base)
 
     def get_serializer_class(self):
-        """Use create serializer for create, list serializer for list/retrieve."""
+        """Create/list/detail serializers by action."""
         if self.action == "create":
             return BoardCreateSerializer
+        if self.action == "retrieve":
+            return BoardDetailSerializer
         return BoardListSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        GET /api/boards/{id}/: board with members and tasks.
+
+        404 if board not found, 403 if user is not owner or member.
+        """
+        board = Board.objects.filter(pk=kwargs["pk"]).first()
+        if not board:
+            raise NotFound("Board nicht gefunden.")
+        if not _user_can_access_board(request.user, board):
+            raise PermissionDenied(
+                "Sie müssen Mitglied des Boards oder Eigentümer sein."
+            )
+        serializer = BoardDetailSerializer(board)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         """Create board and return 201 with same shape as list item."""
