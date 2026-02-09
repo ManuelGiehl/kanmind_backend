@@ -4,6 +4,7 @@ Tasks API Views.
 GET /api/tasks/assigned-to-me/: tasks where user is assignee or reviewer.
 GET /api/tasks/reviewing/: tasks where user is reviewer.
 POST /api/tasks/: create task (user must be board member).
+PATCH /api/tasks/<id>/: update task (user must be board member).
 """
 
 from django.db.models import Count, Q
@@ -19,6 +20,7 @@ from tasks_app.models import Task
 from .serializers import (
     TaskAssignedSerializer,
     TaskCreateSerializer,
+    TaskUpdateSerializer,
     _user_can_create_task_on_board,
 )
 
@@ -112,3 +114,36 @@ class TaskCreateView(APIView):
         )
         payload = TaskAssignedSerializer(qs.first()).data
         return Response(payload, status=201)
+
+
+class TaskUpdateView(APIView):
+    """
+    PATCH /api/tasks/<task_id>/.
+
+    Update a task. User must be a member of the task's board.
+    200 updated; 400 invalid data; 401/403/404 as per docs.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, task_id):
+        """Partial update; return 200 with full task or 400/403/404."""
+        task = get_object_or_404(Task, pk=task_id)
+        if not _user_can_create_task_on_board(request.user, task.board):
+            return Response(
+                {"detail": "You must be a member of the board to update this task."},
+                status=403,
+            )
+        serializer = TaskUpdateSerializer(
+            task, data=request.data, partial=True, context={"task": task}
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        serializer.save()
+        qs = (
+            Task.objects.filter(pk=task.pk)
+            .select_related("assignee", "reviewer")
+            .annotate(comments_count=Count("comments"))
+        )
+        payload = TaskAssignedSerializer(qs.first()).data
+        return Response(payload, status=200)

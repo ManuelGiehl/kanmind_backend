@@ -135,3 +135,64 @@ class TaskCreateSerializer(serializers.Serializer):
             due_date=validated_data.get("due_date"),
         )
         return task
+
+
+class TaskUpdateSerializer(serializers.Serializer):
+    """
+    Partial update: title, description, status, priority,
+    assignee_id, reviewer_id, due_date. Board cannot be changed.
+    """
+
+    title = serializers.CharField(max_length=255, required=False)
+    description = serializers.CharField(required=False, allow_blank=True)
+    status = serializers.ChoiceField(
+        choices=list(STATUS_API_TO_MODEL.keys()), required=False
+    )
+    priority = serializers.ChoiceField(
+        choices=[c[0] for c in Task.Priority.choices], required=False
+    )
+    assignee_id = serializers.IntegerField(required=False, allow_null=True)
+    reviewer_id = serializers.IntegerField(required=False, allow_null=True)
+    due_date = serializers.DateField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        """Require assignee/reviewer to be members of the task's board."""
+        task = self.context["task"]
+        board = task.board
+        assignee_id = attrs.get("assignee_id")
+        reviewer_id = attrs.get("reviewer_id")
+        if assignee_id is not None and not _user_is_board_member(
+            assignee_id, board
+        ):
+            raise serializers.ValidationError(
+                {"assignee_id": "Assignee must be a member of the board."}
+            )
+        if reviewer_id is not None and not _user_is_board_member(
+            reviewer_id, board
+        ):
+            raise serializers.ValidationError(
+                {"reviewer_id": "Reviewer must be a member of the board."}
+            )
+        return attrs
+
+    def update(self, instance, validated_data):
+        """Apply partial update; map status from API to model values."""
+        if "title" in validated_data:
+            instance.title = validated_data["title"]
+        if "description" in validated_data:
+            instance.description = validated_data["description"]
+        if "status" in validated_data:
+            status_api = validated_data["status"]
+            instance.status = STATUS_API_TO_MODEL.get(
+                status_api, status_api
+            )
+        if "priority" in validated_data:
+            instance.priority = validated_data["priority"]
+        if "assignee_id" in validated_data:
+            instance.assignee_id = validated_data["assignee_id"]
+        if "reviewer_id" in validated_data:
+            instance.reviewer_id = validated_data["reviewer_id"]
+        if "due_date" in validated_data:
+            instance.due_date = validated_data["due_date"]
+        instance.save()
+        return instance
