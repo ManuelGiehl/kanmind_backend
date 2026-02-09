@@ -17,9 +17,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from board_app.models import Board
-from tasks_app.models import Task
+from tasks_app.models import Comment, Task
 
 from .serializers import (
+    CommentCreateSerializer,
     CommentListSerializer,
     TaskAssignedSerializer,
     TaskCreateSerializer,
@@ -172,24 +173,45 @@ class TaskUpdateView(APIView):
         return Response(status=204)
 
 
+def _get_task_and_check_board_member(request, task_id):
+    """Return (task, None) or (None, error_response). 403 or 404."""
+    task = get_object_or_404(Task, pk=task_id)
+    if not _user_can_create_task_on_board(request.user, task.board):
+        return None, Response(
+            {"detail": "You must be a member of the board to access comments."},
+            status=403,
+        )
+    return task, None
+
+
 class TaskCommentsListView(APIView):
     """
-    GET /api/tasks/<task_id>/comments/.
-
-    List comments for a task. User must be a member of the task's board.
-    200 list; 401/403/404 as per docs. Comments ordered by created_at.
+    GET /api/tasks/<task_id>/comments/: list (board member).
+    POST /api/tasks/<task_id>/comments/: create (board member); author from auth.
     """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, task_id):
         """Return comments for task; 403 if not board member, 404 if no task."""
-        task = get_object_or_404(Task, pk=task_id)
-        if not _user_can_create_task_on_board(request.user, task.board):
-            return Response(
-                {"detail": "You must be a member of the board to view comments."},
-                status=403,
-            )
+        task, err = _get_task_and_check_board_member(request, task_id)
+        if err is not None:
+            return err
         qs = task.comments.select_related("user").order_by("created_at")
         serializer = CommentListSerializer(qs, many=True)
         return Response(serializer.data)
+
+    def post(self, request, task_id):
+        """Create comment; 201 with comment, 400/403/404 as per docs."""
+        task, err = _get_task_and_check_board_member(request, task_id)
+        if err is not None:
+            return err
+        serializer = CommentCreateSerializer(
+            data=request.data,
+            context={"task": task, "user": request.user},
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        comment = serializer.save()
+        payload = CommentListSerializer(comment).data
+        return Response(payload, status=201)

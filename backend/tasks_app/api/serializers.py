@@ -52,6 +52,22 @@ class CommentListSerializer(serializers.Serializer):
         return _user_fullname(obj.user)
 
 
+class CommentCreateSerializer(serializers.Serializer):
+    """Create comment: content only; author from request.user."""
+
+    content = serializers.CharField(allow_blank=False, trim_whitespace=True)
+
+    def create(self, validated_data):
+        """Create comment; task and user from context."""
+        task = self.context["task"]
+        user = self.context["user"]
+        return Comment.objects.create(
+            task=task,
+            user=user,
+            text=validated_data["content"],
+        )
+
+
 class TaskAssignedSerializer(serializers.Serializer):
     """
     Task in assigned-to-me list: id, board, title, description, status,
