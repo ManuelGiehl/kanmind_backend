@@ -5,10 +5,11 @@ Maps task endpoints under /api/tasks/ (resource-oriented).
 """
 from django.urls import path
 
-from .views import AssignedToMeView
+from .views import AssignedToMeView, ReviewingView
 
 app_name = "tasks_api"
 
 urlpatterns = [
     path("assigned-to-me/", AssignedToMeView.as_view()),
+    path("reviewing/", ReviewingView.as_view()),
 ]
