@@ -30,6 +30,29 @@ from .serializers import (
 )
 
 
+def _task_response_payload(task):
+    """Return serialized task with comments_count for API response."""
+    qs = (
+        Task.objects.filter(pk=task.pk)
+        .select_related("assignee", "reviewer")
+        .annotate(comments_count=Count("comments"))
+    )
+    return TaskAssignedSerializer(qs.first()).data
+
+
+def _task_create_context(request, board_id):
+    """Return context dict with board or 403/404 Response. Board may be None."""
+    if board_id is None:
+        return {}
+    board = get_object_or_404(Board, pk=board_id)
+    if not _user_can_create_task_on_board(request.user, board):
+        return Response(
+            {"detail": "You must be a member of the board to create a task."},
+            status=403,
+        )
+    return {"board": board}
+
+
 def _assigned_to_user_queryset(user):
     """Tasks where user is assignee or reviewer, with comments_count."""
     return (
@@ -98,29 +121,16 @@ class TaskCreateView(APIView):
     def post(self, request):
         """Create task; return 201 with full task or 400/403/404."""
         data = request.data
-        board_id = data.get("board")
-        context = {}
-        if board_id is not None:
-            board = get_object_or_404(Board, pk=board_id)
-            if not _user_can_create_task_on_board(request.user, board):
-                return Response(
-                    {"detail": "You must be a member of the board to create a task."},
-                    status=403,
-                )
-            context["board"] = board
+        context = _task_create_context(request, data.get("board"))
+        if isinstance(context, Response):
+            return context
         serializer = TaskCreateSerializer(data=data, context=context)
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         task = serializer.save()
         task.creator = request.user
         task.save(update_fields=["creator"])
-        qs = (
-            Task.objects.filter(pk=task.pk)
-            .select_related("assignee", "reviewer")
-            .annotate(comments_count=Count("comments"))
-        )
-        payload = TaskAssignedSerializer(qs.first()).data
-        return Response(payload, status=201)
+        return Response(_task_response_payload(task), status=201)
 
 
 def _user_can_delete_task(user, task):
@@ -154,13 +164,7 @@ class TaskUpdateView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         serializer.save()
-        qs = (
-            Task.objects.filter(pk=task.pk)
-            .select_related("assignee", "reviewer")
-            .annotate(comments_count=Count("comments"))
-        )
-        payload = TaskAssignedSerializer(qs.first()).data
-        return Response(payload, status=200)
+        return Response(_task_response_payload(task), status=200)
 
     def delete(self, request, task_id):
         """Delete task; 204 no content, 403 not allowed, 404 not found."""

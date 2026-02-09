@@ -93,6 +93,23 @@ def _build_fullname(user):
     return full or user.username
 
 
+def _email_check_validate(email):
+    """Return None if valid; else 400 Response."""
+    if not email:
+        return Response(
+            {"detail": "Email address missing or invalid format."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response(
+            {"detail": "Email address missing or invalid format."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return None
+
+
 class EmailCheckView(APIView):
     """
     GET /api/email-check/?email=...
@@ -106,18 +123,9 @@ class EmailCheckView(APIView):
     def get(self, request):
         """Return user by email or 400/404."""
         email = request.query_params.get("email", "").strip()
-        if not email:
-            return Response(
-                {"detail": "Email address missing or invalid format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            validate_email(email)
-        except ValidationError:
-            return Response(
-                {"detail": "Email address missing or invalid format."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        err = _email_check_validate(email)
+        if err is not None:
+            return err
         user = User.objects.filter(email__iexact=email).first()
         if not user:
             return Response(

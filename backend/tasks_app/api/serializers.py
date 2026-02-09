@@ -102,6 +102,26 @@ def _user_is_board_member(user_id, board):
     return BoardMember.objects.filter(board=board, user_id=user_id).exists()
 
 
+def _apply_task_update_fields(instance, validated_data):
+    """Set instance fields from validated_data; map status API -> model."""
+    if "title" in validated_data:
+        instance.title = validated_data["title"]
+    if "description" in validated_data:
+        instance.description = validated_data["description"]
+    if "status" in validated_data:
+        instance.status = STATUS_API_TO_MODEL.get(
+            validated_data["status"], validated_data["status"]
+        )
+    if "priority" in validated_data:
+        instance.priority = validated_data["priority"]
+    if "assignee_id" in validated_data:
+        instance.assignee_id = validated_data["assignee_id"]
+    if "reviewer_id" in validated_data:
+        instance.reviewer_id = validated_data["reviewer_id"]
+    if "due_date" in validated_data:
+        instance.due_date = validated_data["due_date"]
+
+
 class TaskCreateSerializer(serializers.Serializer):
     """
     Create task: board, title, description, status, priority,
@@ -207,22 +227,6 @@ class TaskUpdateSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         """Apply partial update; map status from API to model values."""
-        if "title" in validated_data:
-            instance.title = validated_data["title"]
-        if "description" in validated_data:
-            instance.description = validated_data["description"]
-        if "status" in validated_data:
-            status_api = validated_data["status"]
-            instance.status = STATUS_API_TO_MODEL.get(
-                status_api, status_api
-            )
-        if "priority" in validated_data:
-            instance.priority = validated_data["priority"]
-        if "assignee_id" in validated_data:
-            instance.assignee_id = validated_data["assignee_id"]
-        if "reviewer_id" in validated_data:
-            instance.reviewer_id = validated_data["reviewer_id"]
-        if "due_date" in validated_data:
-            instance.due_date = validated_data["due_date"]
+        _apply_task_update_fields(instance, validated_data)
         instance.save()
         return instance

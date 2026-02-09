@@ -4,7 +4,7 @@ Auth API Serializers.
 Serializers for registration and login requests/responses.
 """
 
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 User = get_user_model()
@@ -72,14 +72,9 @@ class LoginSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
-        """Authenticate user; attach user to attrs or raise ValidationError."""
-        request = self.context.get("request")
-        user = authenticate(
-            request,
-            username=attrs["email"],
-            password=attrs["password"],
-        )
-        if user is None:
+        """Authenticate by email and password; attach user or raise ValidationError."""
+        user = User.objects.filter(email__iexact=attrs["email"]).first()
+        if user is None or not user.check_password(attrs["password"]):
             raise serializers.ValidationError(
                 "Invalid email or password."
             )
