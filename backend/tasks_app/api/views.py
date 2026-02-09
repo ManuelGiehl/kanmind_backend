@@ -3,17 +3,24 @@ Tasks API Views.
 
 GET /api/tasks/assigned-to-me/: tasks where user is assignee or reviewer.
 GET /api/tasks/reviewing/: tasks where user is reviewer.
+POST /api/tasks/: create task (user must be board member).
 """
 
 from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from board_app.models import Board
 from tasks_app.models import Task
 
-from .serializers import TaskAssignedSerializer
+from .serializers import (
+    TaskAssignedSerializer,
+    TaskCreateSerializer,
+    _user_can_create_task_on_board,
+)
 
 
 def _assigned_to_user_queryset(user):
@@ -69,3 +76,39 @@ class ReviewingView(APIView):
         qs = _reviewing_queryset(request.user)
         serializer = TaskAssignedSerializer(qs, many=True)
         return Response(serializer.data)
+
+
+class TaskCreateView(APIView):
+    """
+    POST /api/tasks/.
+
+    Create a task. User must be a member of the board. 201 created;
+    400 invalid data; 401 unauthenticated; 403 not board member; 404 board not found.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Create task; return 201 with full task or 400/403/404."""
+        data = request.data
+        board_id = data.get("board")
+        context = {}
+        if board_id is not None:
+            board = get_object_or_404(Board, pk=board_id)
+            if not _user_can_create_task_on_board(request.user, board):
+                return Response(
+                    {"detail": "You must be a member of the board to create a task."},
+                    status=403,
+                )
+            context["board"] = board
+        serializer = TaskCreateSerializer(data=data, context=context)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        task = serializer.save()
+        qs = (
+            Task.objects.filter(pk=task.pk)
+            .select_related("assignee", "reviewer")
+            .annotate(comments_count=Count("comments"))
+        )
+        payload = TaskAssignedSerializer(qs.first()).data
+        return Response(payload, status=201)
