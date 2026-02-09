@@ -2,18 +2,21 @@
 
 Django REST Framework API for the KanMind board/task application. Token-based authentication; resource-oriented API for auth, boards, and tasks.
 
+**Application code lives in the [`backend/`](backend/) directory.** All commands below must be run from inside `backend/`.
+
 ## Requirements
 
 - Python 3.10+
-- See `requirements.txt` for dependencies.
+- See [`backend/requirements.txt`](backend/requirements.txt) for dependencies.
 
 ## Quick Start
 
-1. **Clone the repository** (backend only; no frontend in this repo).
+1. **Clone the repository.**
 
-2. **Create and activate a virtual environment:**
+2. **Go into the backend directory and create a virtual environment:**
 
    ```bash
+   cd backend
    python -m venv venv
    # Windows:
    venv\Scripts\activate
@@ -29,20 +32,20 @@ Django REST Framework API for the KanMind board/task application. Token-based au
 
 4. **Environment variables:**
 
-   Copy `.env.example` to `.env` and set at least:
+   Copy `backend/.env.example` to `backend/.env` and set at least:
 
    - `SECRET_KEY` – Django secret (use a random string).
    - Optionally: `DEBUG`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` (for production).
 
-   The database file (`db.sqlite3`) is created automatically; do not commit it to Git.
+   The database file (`db.sqlite3`) is created inside `backend/` automatically; do not commit it to Git.
 
-5. **Run migrations:**
+5. **Run migrations** (from `backend/`):
 
    ```bash
    python manage.py migrate
    ```
 
-6. **Start the server:**
+6. **Start the server** (from `backend/`):
 
    ```bash
    python manage.py runserver
@@ -52,19 +55,21 @@ Django REST Framework API for the KanMind board/task application. Token-based au
 
 ## Special Features
 
-- **Guest user:** To enable the frontend "Guest login" button, create the guest user once:
+- **Guest user:** To enable the frontend "Guest login" button, run once from `backend/`:
   ```bash
+  cd backend
   python manage.py create_guest_user
   ```
   Credentials match `GUEST_LOGIN` in the frontend config (email/password).
 
 - **CORS:** When `DEBUG=True`, all origins are allowed so the frontend (e.g. Live Server on another port) can call the API. For production, set `CORS_ALLOWED_ORIGINS` in `.env`.
 
-- **Admin:** Django admin is available at `/admin/`. Create a superuser with `python manage.py createsuperuser` to manage boards, tasks, and users.
+- **Admin:** Django admin is available at `/admin/`. From `backend/`, run `python manage.py createsuperuser` to manage boards, tasks, and users.
 
 ## Project Structure
 
-- **Project name:** `core` (settings, main URLs).
+- **Repository root:** This README; `.gitignore`; application code in **`backend/`**.
+- **Inside `backend/`:** Django project **`core`** (settings, main URLs), `manage.py`, `requirements.txt`, `.env.example`.
 - **Apps:** `auth_app` (registration, login, email-check), `board_app` (boards CRUD), `tasks_app` (tasks and comments).
 - Each app has an `api/` folder with `views.py`, `serializers.py`, `urls.py`, `permissions.py`.
 
