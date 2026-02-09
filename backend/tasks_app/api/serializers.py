@@ -9,7 +9,7 @@ from django.db.models import Count
 from rest_framework import serializers
 
 from board_app.models import Board, BoardMember
-from tasks_app.models import Task
+from tasks_app.models import Comment, Task
 
 STATUS_API_TO_MODEL = {
     "to-do": Task.Status.TO_DO,
@@ -36,6 +36,20 @@ class UserMiniSerializer(serializers.Serializer):
 
     def get_fullname(self, obj):
         return _user_fullname(obj)
+
+
+class CommentListSerializer(serializers.Serializer):
+    """Comment in list: id, created_at (ISO), author (full name), content."""
+
+    id = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(
+        read_only=True, format="%Y-%m-%dT%H:%M:%SZ"
+    )
+    author = serializers.SerializerMethodField()
+    content = serializers.CharField(read_only=True, source="text")
+
+    def get_author(self, obj):
+        return _user_fullname(obj.user)
 
 
 class TaskAssignedSerializer(serializers.Serializer):

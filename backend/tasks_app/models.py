@@ -6,6 +6,7 @@ Task: a task/ticket on a board. Comment: for comments_count on tasks.
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Task(models.Model):
@@ -87,9 +88,10 @@ class Comment(models.Model):
         related_name="task_comments",
     )
     text = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["created_at"]
         verbose_name = "comment"
         verbose_name_plural = "comments"
 

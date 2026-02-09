@@ -6,6 +6,7 @@ GET /api/tasks/reviewing/: tasks where user is reviewer.
 POST /api/tasks/: create task (user must be board member).
 PATCH /api/tasks/<id>/: update task (user must be board member).
 DELETE /api/tasks/<id>/: delete task (creator or board owner only).
+GET /api/tasks/<id>/comments/: list comments (board member only).
 """
 
 from django.db.models import Count, Q
@@ -19,6 +20,7 @@ from board_app.models import Board
 from tasks_app.models import Task
 
 from .serializers import (
+    CommentListSerializer,
     TaskAssignedSerializer,
     TaskCreateSerializer,
     TaskUpdateSerializer,
@@ -168,3 +170,26 @@ class TaskUpdateView(APIView):
             )
         task.delete()
         return Response(status=204)
+
+
+class TaskCommentsListView(APIView):
+    """
+    GET /api/tasks/<task_id>/comments/.
+
+    List comments for a task. User must be a member of the task's board.
+    200 list; 401/403/404 as per docs. Comments ordered by created_at.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, task_id):
+        """Return comments for task; 403 if not board member, 404 if no task."""
+        task = get_object_or_404(Task, pk=task_id)
+        if not _user_can_create_task_on_board(request.user, task.board):
+            return Response(
+                {"detail": "You must be a member of the board to view comments."},
+                status=403,
+            )
+        qs = task.comments.select_related("user").order_by("created_at")
+        serializer = CommentListSerializer(qs, many=True)
+        return Response(serializer.data)
