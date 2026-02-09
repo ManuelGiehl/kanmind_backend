@@ -7,6 +7,7 @@ POST /api/tasks/: create task (user must be board member).
 PATCH /api/tasks/<id>/: update task (user must be board member).
 DELETE /api/tasks/<id>/: delete task (creator or board owner only).
 GET /api/tasks/<id>/comments/: list comments (board member only).
+DELETE /api/tasks/<id>/comments/<comment_id>/: delete comment (creator only).
 """
 
 from django.db.models import Count, Q
@@ -215,3 +216,25 @@ class TaskCommentsListView(APIView):
         comment = serializer.save()
         payload = CommentListSerializer(comment).data
         return Response(payload, status=201)
+
+
+class TaskCommentDetailView(APIView):
+    """
+    DELETE /api/tasks/<task_id>/comments/<comment_id>/.
+
+    Delete a comment. Only the comment creator can delete. 204; 403/404 as per docs.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, task_id, comment_id):
+        """Delete comment; 204 no content, 403 not creator, 404 task/comment not found."""
+        get_object_or_404(Task, pk=task_id)
+        comment = get_object_or_404(Comment, pk=comment_id, task_id=task_id)
+        if comment.user_id != request.user.id:
+            return Response(
+                {"detail": "Only the creator of the comment can delete it."},
+                status=403,
+            )
+        comment.delete()
+        return Response(status=204)
