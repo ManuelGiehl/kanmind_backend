@@ -5,6 +5,7 @@ GET /api/tasks/assigned-to-me/: tasks where user is assignee or reviewer.
 GET /api/tasks/reviewing/: tasks where user is reviewer.
 POST /api/tasks/: create task (user must be board member).
 PATCH /api/tasks/<id>/: update task (user must be board member).
+DELETE /api/tasks/<id>/: delete task (creator or board owner only).
 """
 
 from django.db.models import Count, Q
@@ -107,6 +108,8 @@ class TaskCreateView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
         task = serializer.save()
+        task.creator = request.user
+        task.save(update_fields=["creator"])
         qs = (
             Task.objects.filter(pk=task.pk)
             .select_related("assignee", "reviewer")
@@ -116,12 +119,19 @@ class TaskCreateView(APIView):
         return Response(payload, status=201)
 
 
+def _user_can_delete_task(user, task):
+    """True if user is task creator or board owner."""
+    if task.board.owner_id == user.id:
+        return True
+    if task.creator_id is not None and task.creator_id == user.id:
+        return True
+    return False
+
+
 class TaskUpdateView(APIView):
     """
-    PATCH /api/tasks/<task_id>/.
-
-    Update a task. User must be a member of the task's board.
-    200 updated; 400 invalid data; 401/403/404 as per docs.
+    PATCH /api/tasks/<task_id>/: update (board member).
+    DELETE /api/tasks/<task_id>/: delete (creator or board owner only).
     """
 
     permission_classes = [IsAuthenticated]
@@ -147,3 +157,14 @@ class TaskUpdateView(APIView):
         )
         payload = TaskAssignedSerializer(qs.first()).data
         return Response(payload, status=200)
+
+    def delete(self, request, task_id):
+        """Delete task; 204 no content, 403 not allowed, 404 not found."""
+        task = get_object_or_404(Task, pk=task_id)
+        if not _user_can_delete_task(request.user, task):
+            return Response(
+                {"detail": "Only the creator of the task or the board owner can delete it."},
+                status=403,
+            )
+        task.delete()
+        return Response(status=204)
