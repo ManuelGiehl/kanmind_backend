@@ -34,17 +34,30 @@ class UserMiniSerializer(serializers.Serializer):
         return _user_fullname(obj)
 
 
+STATUS_MODEL_TO_API = {
+    Task.Status.TO_DO: "to-do",
+    Task.Status.IN_PROGRESS: "in-progress",
+    Task.Status.REVIEW: "review",
+    Task.Status.DONE: "done",
+}
+
+
 class TaskDetailSerializer(serializers.Serializer):
     """
     Task in board detail: id, title, description, status, priority,
     assignee, reviewer, due_date, comments_count.
+    Status in API format (to-do, in-progress) for frontend columns.
     """
 
     id = serializers.IntegerField(read_only=True)
     title = serializers.CharField(read_only=True)
     description = serializers.CharField(read_only=True, allow_blank=True)
-    status = serializers.CharField(read_only=True)
+    status = serializers.SerializerMethodField()
     priority = serializers.CharField(read_only=True)
+
+    def get_status(self, obj):
+        """Return API status format (e.g. to-do, in-progress) for frontend."""
+        return STATUS_MODEL_TO_API.get(obj.status, obj.status)
     assignee = UserMiniSerializer(read_only=True, allow_null=True)
     reviewer = UserMiniSerializer(read_only=True, allow_null=True)
     due_date = serializers.DateField(
