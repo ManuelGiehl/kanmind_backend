@@ -10,11 +10,10 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from rest_framework.exceptions import NotFound, PermissionDenied
-
 from board_app.models import Board
 from tasks_app.models import Task
 
+from .permissions import IsBoardOwner
 from .serializers import (
     BoardCreateSerializer,
     BoardDetailSerializer,
@@ -22,37 +21,6 @@ from .serializers import (
     BoardUpdateSerializer,
     board_patch_response_data,
 )
-
-
-def _user_can_access_board(user, board):
-    """True if user is owner or member of the board."""
-    if board.owner_id == user.pk:
-        return True
-    return board.members.filter(user=user).exists()
-
-
-def _get_board_or_raise(request, pk):
-    """Return board by pk or raise NotFound or PermissionDenied."""
-    board = Board.objects.filter(pk=pk).first()
-    if not board:
-        raise NotFound("Board not found.")
-    if not _user_can_access_board(request.user, board):
-        raise PermissionDenied(
-            "You must be a member of the board or the owner."
-        )
-    return board
-
-
-def _get_board_owner_or_raise(request, pk):
-    """Return board by pk or raise NotFound/403. Only owner may proceed."""
-    board = Board.objects.filter(pk=pk).first()
-    if not board:
-        raise NotFound("Board not found.")
-    if board.owner_id != request.user.pk:
-        raise PermissionDenied(
-            "You must be the owner of the board to delete it."
-        )
-    return board
 
 
 def _annotate_board_counts(queryset):
@@ -82,6 +50,11 @@ class BoardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
+    def get_permissions(self):
+        if self.action == "destroy":
+            return [IsAuthenticated(), IsBoardOwner()]
+        return [IsAuthenticated()]
+
     def get_queryset(self):
         """Boards the user owns or is a member of, with annotated counts."""
         user = self.request.user
@@ -106,7 +79,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
         404 if board not found, 403 if user is not owner or member.
         """
-        board = _get_board_or_raise(request, kwargs["pk"])
+        board = self.get_object()
         serializer = BoardDetailSerializer(board)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -129,7 +102,7 @@ class BoardViewSet(viewsets.ModelViewSet):
         404 if board not found, 403 if not owner or member.
         Response: id, title, owner_data, members_data (200).
         """
-        board = _get_board_or_raise(request, kwargs["pk"])
+        board = self.get_object()
         serializer = BoardUpdateSerializer(
             board, data=request.data, partial=True
         )
@@ -147,6 +120,6 @@ class BoardViewSet(viewsets.ModelViewSet):
         204 on success. 403 if not owner. 404 if board not found.
         Cascades: tasks and comments are removed.
         """
-        board = _get_board_owner_or_raise(request, kwargs["pk"])
+        board = self.get_object()
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

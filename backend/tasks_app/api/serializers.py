@@ -11,6 +11,8 @@ from rest_framework import serializers
 from board_app.models import Board, BoardMember
 from tasks_app.models import Comment, Task
 
+from .permissions import user_can_create_task_on_board, user_is_board_member
+
 STATUS_API_TO_MODEL = {
     "to-do": Task.Status.TO_DO,
     "in-progress": Task.Status.IN_PROGRESS,
@@ -88,20 +90,6 @@ class TaskAssignedSerializer(serializers.Serializer):
     comments_count = serializers.IntegerField(read_only=True, default=0)
 
 
-def _user_can_create_task_on_board(user, board):
-    """True if user is board owner or a board member."""
-    if board.owner_id == user.id:
-        return True
-    return BoardMember.objects.filter(board=board, user=user).exists()
-
-
-def _user_is_board_member(user_id, board):
-    """True if user is board owner or a board member."""
-    if board.owner_id == user_id:
-        return True
-    return BoardMember.objects.filter(board=board, user_id=user_id).exists()
-
-
 def _apply_task_update_fields(instance, validated_data):
     """Set instance fields from validated_data; map status API -> model."""
     if "title" in validated_data:
@@ -151,13 +139,13 @@ class TaskCreateSerializer(serializers.Serializer):
         board = attrs["board"]
         assignee_id = attrs.get("assignee_id")
         reviewer_id = attrs.get("reviewer_id")
-        if assignee_id is not None and not _user_is_board_member(
+        if assignee_id is not None and not user_is_board_member(
             assignee_id, board
         ):
             raise serializers.ValidationError(
                 {"assignee_id": "Assignee must be a member of the board."}
             )
-        if reviewer_id is not None and not _user_is_board_member(
+        if reviewer_id is not None and not user_is_board_member(
             reviewer_id, board
         ):
             raise serializers.ValidationError(
@@ -211,13 +199,13 @@ class TaskUpdateSerializer(serializers.Serializer):
         board = task.board
         assignee_id = attrs.get("assignee_id")
         reviewer_id = attrs.get("reviewer_id")
-        if assignee_id is not None and not _user_is_board_member(
+        if assignee_id is not None and not user_is_board_member(
             assignee_id, board
         ):
             raise serializers.ValidationError(
                 {"assignee_id": "Assignee must be a member of the board."}
             )
-        if reviewer_id is not None and not _user_is_board_member(
+        if reviewer_id is not None and not user_is_board_member(
             reviewer_id, board
         ):
             raise serializers.ValidationError(
