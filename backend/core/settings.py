@@ -42,9 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
-    'auth_app',
-    'board_app',
-    'tasks_app',
+    "auth_app",
+    "board_app.apps.BoardAppConfig",
+    "tasks_app.apps.TasksAppConfig",
 ]
 
 MIDDLEWARE = [
