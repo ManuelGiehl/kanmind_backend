@@ -183,12 +183,16 @@ def board_patch_response_data(board):
     """Build PATCH response: id, title, owner_data, members_data."""
     board.refresh_from_db()
     owner = board.owner
-    members = [m.user for m in board.members.select_related("user")]
+    # Query members directly so response reflects current DB after PATCH update
+    member_users = [
+        m.user
+        for m in BoardMember.objects.filter(board=board).select_related("user")
+    ]
     return {
         "id": board.id,
         "title": board.title,
         "owner_data": UserMiniSerializer(owner).data,
-        "members_data": UserMiniSerializer(members, many=True).data,
+        "members_data": UserMiniSerializer(member_users, many=True).data,
     }
 
 
