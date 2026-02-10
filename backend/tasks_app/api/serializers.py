@@ -11,7 +11,7 @@ from rest_framework import serializers
 from board_app.models import Board, BoardMember
 from tasks_app.models import Comment, Task
 
-from .permissions import user_can_create_task_on_board, user_is_board_member
+from .permissions import user_is_board_member
 
 STATUS_API_TO_MODEL = {
     "to-do": Task.Status.TO_DO,
@@ -20,14 +20,12 @@ STATUS_API_TO_MODEL = {
     "done": Task.Status.DONE,
 }
 
-
 def _user_fullname(user):
     """Return full name from first_name + last_name, fallback to username."""
     if not user:
         return None
     full = f"{user.first_name} {user.last_name}".strip()
     return full or user.username
-
 
 class UserMiniSerializer(serializers.Serializer):
     """Minimal user for assignee/reviewer: id, email, fullname."""
@@ -38,7 +36,6 @@ class UserMiniSerializer(serializers.Serializer):
 
     def get_fullname(self, obj):
         return _user_fullname(obj)
-
 
 class CommentListSerializer(serializers.Serializer):
     """Comment in list: id, created_at (ISO), author (full name), content."""
@@ -52,7 +49,6 @@ class CommentListSerializer(serializers.Serializer):
 
     def get_author(self, obj):
         return _user_fullname(obj.user)
-
 
 class CommentCreateSerializer(serializers.Serializer):
     """Create comment: content only; author from request.user."""
@@ -68,7 +64,6 @@ class CommentCreateSerializer(serializers.Serializer):
             user=user,
             text=validated_data["content"],
         )
-
 
 class TaskAssignedSerializer(serializers.Serializer):
     """
@@ -89,7 +84,6 @@ class TaskAssignedSerializer(serializers.Serializer):
     )
     comments_count = serializers.IntegerField(read_only=True, default=0)
 
-
 def _apply_task_update_fields(instance, validated_data):
     """Set instance fields from validated_data; map status API -> model."""
     if "title" in validated_data:
@@ -108,7 +102,6 @@ def _apply_task_update_fields(instance, validated_data):
         instance.reviewer_id = validated_data["reviewer_id"]
     if "due_date" in validated_data:
         instance.due_date = validated_data["due_date"]
-
 
 class TaskCreateSerializer(serializers.Serializer):
     """
@@ -173,7 +166,6 @@ class TaskCreateSerializer(serializers.Serializer):
             due_date=validated_data.get("due_date"),
         )
         return task
-
 
 class TaskUpdateSerializer(serializers.Serializer):
     """

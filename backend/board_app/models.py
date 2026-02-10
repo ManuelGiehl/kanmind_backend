@@ -8,7 +8,6 @@ BoardMember: membership of a user on a board (owner is not a member row).
 from django.conf import settings
 from django.db import models
 
-
 class Board(models.Model):
     """
     A board (project). Has one owner; members are in BoardMember.
@@ -28,7 +27,6 @@ class Board(models.Model):
 
     def __str__(self):
         return self.title
-
 
 class BoardMember(models.Model):
     """

@@ -22,7 +22,6 @@ from .serializers import (
     board_patch_response_data,
 )
 
-
 def _annotate_board_counts(queryset):
     """Add member_count, ticket_count, tasks_to_do_count, tasks_high_prio_count."""
     return queryset.annotate(
@@ -39,7 +38,6 @@ def _annotate_board_counts(queryset):
             distinct=True,
         ),
     )
-
 
 class BoardViewSet(viewsets.ModelViewSet):
     """

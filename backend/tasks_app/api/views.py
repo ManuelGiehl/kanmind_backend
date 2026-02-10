@@ -35,7 +35,6 @@ from .serializers import (
     TaskUpdateSerializer,
 )
 
-
 def _task_response_payload(task):
     """Return serialized task with comments_count for API response."""
     qs = (
@@ -44,7 +43,6 @@ def _task_response_payload(task):
         .annotate(comments_count=Count("comments"))
     )
     return TaskAssignedSerializer(qs.first()).data
-
 
 def _task_create_context(request, board_id):
     """Return context dict with board or 403/404 Response. Board may be None."""
@@ -58,7 +56,6 @@ def _task_create_context(request, board_id):
         )
     return {"board": board}
 
-
 def _assigned_to_user_queryset(user):
     """Tasks where user is assignee or reviewer, with comments_count."""
     return (
@@ -68,7 +65,6 @@ def _assigned_to_user_queryset(user):
         .order_by("-id")
     )
 
-
 def _reviewing_queryset(user):
     """Tasks where user is reviewer, with comments_count."""
     return (
@@ -77,7 +73,6 @@ def _reviewing_queryset(user):
         .annotate(comments_count=Count("comments"))
         .order_by("-id")
     )
-
 
 class AssignedToMeView(APIView):
     """
@@ -96,7 +91,6 @@ class AssignedToMeView(APIView):
         serializer = TaskAssignedSerializer(qs, many=True)
         return Response(serializer.data)
 
-
 class ReviewingView(APIView):
     """
     GET /api/tasks/reviewing/.
@@ -112,7 +106,6 @@ class ReviewingView(APIView):
         qs = _reviewing_queryset(request.user)
         serializer = TaskAssignedSerializer(qs, many=True)
         return Response(serializer.data)
-
 
 class TaskCreateView(APIView):
     """
@@ -137,7 +130,6 @@ class TaskCreateView(APIView):
         task.creator = request.user
         task.save(update_fields=["creator"])
         return Response(_task_response_payload(task), status=201)
-
 
 class TaskUpdateView(APIView):
     """
@@ -171,7 +163,6 @@ class TaskUpdateView(APIView):
         task.delete()
         return Response(status=204)
 
-
 class TaskCommentsListView(APIView):
     """
     GET /api/tasks/<task_id>/comments/: list (board member).
@@ -199,7 +190,6 @@ class TaskCommentsListView(APIView):
         comment = serializer.save()
         payload = CommentListSerializer(comment).data
         return Response(payload, status=201)
-
 
 class TaskCommentDetailView(APIView):
     """

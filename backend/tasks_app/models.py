@@ -8,7 +8,6 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-
 class Task(models.Model):
     """
     A task on a board (title, description, status, priority, assignee, reviewer).
@@ -72,7 +71,6 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
-
 
 class Comment(models.Model):
     """Comment on a task; used for comments_count."""

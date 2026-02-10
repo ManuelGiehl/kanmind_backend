@@ -18,7 +18,6 @@ from .serializers import LoginSerializer, RegistrationSerializer
 
 User = get_user_model()
 
-
 class RegistrationView(APIView):
     """
     POST /api/registration/.
@@ -50,7 +49,6 @@ class RegistrationView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
-
 
 class LoginView(APIView):
     """
@@ -86,12 +84,10 @@ class LoginView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 def _build_fullname(user):
     """Return user full name from first_name + last_name, fallback to username."""
     full = f"{user.first_name} {user.last_name}".strip()
     return full or user.username
-
 
 def _email_check_validate(email):
     """Return None if valid; else 400 Response."""
@@ -108,7 +104,6 @@ def _email_check_validate(email):
             status=status.HTTP_400_BAD_REQUEST,
         )
     return None
-
 
 class EmailCheckView(APIView):
     """

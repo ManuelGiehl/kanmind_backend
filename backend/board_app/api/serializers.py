@@ -14,14 +14,12 @@ from tasks_app.models import Task
 
 User = get_user_model()
 
-
 def _user_fullname(user):
     """Return full name from first_name + last_name, fallback to username."""
     if not user:
         return None
     full = f"{user.first_name} {user.last_name}".strip()
     return full or user.username
-
 
 class UserMiniSerializer(serializers.Serializer):
     """Minimal user for members, assignee, reviewer: id, email, fullname."""
@@ -33,14 +31,12 @@ class UserMiniSerializer(serializers.Serializer):
     def get_fullname(self, obj):
         return _user_fullname(obj)
 
-
 STATUS_MODEL_TO_API = {
     Task.Status.TO_DO: "to-do",
     Task.Status.IN_PROGRESS: "in-progress",
     Task.Status.REVIEW: "review",
     Task.Status.DONE: "done",
 }
-
 
 class TaskDetailSerializer(serializers.Serializer):
     """
@@ -64,7 +60,6 @@ class TaskDetailSerializer(serializers.Serializer):
         format="%Y-%m-%d", read_only=True, allow_null=True
     )
     comments_count = serializers.IntegerField(read_only=True, default=0)
-
 
 class BoardCreateSerializer(serializers.Serializer):
     """
@@ -108,7 +103,6 @@ class BoardCreateSerializer(serializers.Serializer):
                 )
         return board
 
-
 class BoardDetailSerializer(serializers.Serializer):
     """
     GET /api/boards/{id}/: board with members and tasks.
@@ -133,7 +127,6 @@ class BoardDetailSerializer(serializers.Serializer):
             comments_count=Count("comments"),
         )
         return TaskDetailSerializer(qs, many=True).data
-
 
 class BoardUpdateSerializer(serializers.Serializer):
     """
@@ -170,14 +163,12 @@ class BoardUpdateSerializer(serializers.Serializer):
             _set_board_members(instance, validated_data["members"])
         return instance
 
-
 def _set_board_members(board, user_ids):
     """Set board members to exactly user_ids; remove others, skip owner."""
     board.members.exclude(user_id__in=user_ids).delete()
     for uid in user_ids or []:
         if uid != board.owner_id:
             BoardMember.objects.get_or_create(board=board, user_id=uid)
-
 
 def board_patch_response_data(board):
     """Build PATCH response: id, title, owner_data, members_data."""
@@ -194,7 +185,6 @@ def board_patch_response_data(board):
         "owner_data": UserMiniSerializer(owner).data,
         "members_data": UserMiniSerializer(member_users, many=True).data,
     }
-
 
 class BoardListSerializer(serializers.Serializer):
     """

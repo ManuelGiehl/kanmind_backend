@@ -8,20 +8,17 @@ from rest_framework import permissions
 from board_app.models import BoardMember
 from tasks_app.models import Comment, Task
 
-
 def user_can_create_task_on_board(user, board):
     """True if user is board owner or a board member."""
     if board.owner_id == user.id:
         return True
     return BoardMember.objects.filter(board=board, user=user).exists()
 
-
 def user_is_board_member(user_id, board):
     """True if user is board owner or a board member."""
     if board.owner_id == user_id:
         return True
     return BoardMember.objects.filter(board=board, user_id=user_id).exists()
-
 
 def user_can_delete_task(user, task):
     """True if user is task creator or board owner."""
@@ -31,11 +28,9 @@ def user_can_delete_task(user, task):
         return True
     return False
 
-
 def user_can_delete_comment(user, comment):
     """True if user is the comment creator."""
     return comment.user_id == user.id
-
 
 class IsBoardMemberForTask(permissions.BasePermission):
     """
@@ -46,7 +41,6 @@ class IsBoardMemberForTask(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         return user_can_create_task_on_board(request.user, obj.board)
 
-
 class IsTaskCreatorOrBoardOwner(permissions.BasePermission):
     """
     Object-level: allow if user is task creator or board owner.
@@ -55,7 +49,6 @@ class IsTaskCreatorOrBoardOwner(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
         return user_can_delete_task(request.user, obj)
-
 
 class IsBoardMemberForTaskUpdate(permissions.BasePermission):
     """
@@ -72,7 +65,6 @@ class IsBoardMemberForTaskUpdate(permissions.BasePermission):
             return False
         return user_can_create_task_on_board(request.user, task.board)
 
-
 class IsTaskCreatorOrBoardOwnerForDelete(permissions.BasePermission):
     """
     Request-level: allow if user is task creator or board owner.
@@ -88,7 +80,6 @@ class IsTaskCreatorOrBoardOwnerForDelete(permissions.BasePermission):
             return False
         return user_can_delete_task(request.user, task)
 
-
 class IsBoardMemberForTaskComments(permissions.BasePermission):
     """
     Request-level: allow if user is member or owner of the task's board.
@@ -103,7 +94,6 @@ class IsBoardMemberForTaskComments(permissions.BasePermission):
         if not task:
             return False
         return user_can_create_task_on_board(request.user, task.board)
-
 
 class IsCommentCreator(permissions.BasePermission):
     """

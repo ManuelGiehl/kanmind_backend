@@ -9,7 +9,6 @@ from rest_framework import serializers
 
 User = get_user_model()
 
-
 class RegistrationSerializer(serializers.Serializer):
     """
     Serializer for POST /api/registration/.
@@ -56,7 +55,6 @@ class RegistrationSerializer(serializers.Serializer):
             first_name=first_name,
             last_name=last_name,
         )
-
 
 class LoginSerializer(serializers.Serializer):
     """
