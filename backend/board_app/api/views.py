@@ -5,8 +5,10 @@ GET /api/boards/: list. POST: create. PATCH: update. DELETE: delete (owner only)
 """
 
 from django.db.models import Count, Q
+from django.http import Http404
 
 from rest_framework import status, viewsets
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -60,6 +62,16 @@ class BoardViewSet(viewsets.ModelViewSet):
             Q(owner=user) | Q(members__user=user)
         ).distinct()
         return _annotate_board_counts(base)
+
+    def get_object(self):
+        """Return board; 404 if not found, 403 if user has no access to existing board."""
+        try:
+            return super().get_object()
+        except (NotFound, Http404):
+            pk = self.kwargs.get("pk")
+            if pk is not None and Board.objects.filter(pk=pk).exists():
+                raise PermissionDenied("You do not have access to this board.")
+            raise
 
     def get_serializer_class(self):
         """Create/list/detail/update serializers by action."""

@@ -62,7 +62,7 @@ class IsBoardMemberForTaskUpdate(permissions.BasePermission):
             return False
         task = Task.objects.filter(pk=task_id).first()
         if not task:
-            return False
+            return True
         return user_can_create_task_on_board(request.user, task.board)
 
 class IsTaskCreatorOrBoardOwnerForDelete(permissions.BasePermission):
@@ -77,7 +77,7 @@ class IsTaskCreatorOrBoardOwnerForDelete(permissions.BasePermission):
             return False
         task = Task.objects.filter(pk=task_id).first()
         if not task:
-            return False
+            return True
         return user_can_delete_task(request.user, task)
 
 class IsBoardMemberForTaskComments(permissions.BasePermission):
@@ -92,7 +92,7 @@ class IsBoardMemberForTaskComments(permissions.BasePermission):
             return False
         task = Task.objects.filter(pk=task_id).first()
         if not task:
-            return False
+            return True
         return user_can_create_task_on_board(request.user, task.board)
 
 class IsCommentCreator(permissions.BasePermission):
@@ -110,5 +110,5 @@ class IsCommentCreator(permissions.BasePermission):
             pk=comment_id, task_id=task_id
         ).first()
         if not comment:
-            return False
+            return True
         return user_can_delete_comment(request.user, comment)
