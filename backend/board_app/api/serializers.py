@@ -170,15 +170,26 @@ def _set_board_members(board, user_ids):
         if uid != board.owner_id:
             BoardMember.objects.get_or_create(board=board, user_id=uid)
 
-def board_patch_response_data(board):
-    """Build PATCH response: id, title, owner_data, members_data."""
+def board_patch_response_data(board, member_ids=None):
+    """Build PATCH response: id, title, owner_data, members_data.
+
+    If member_ids is given (from PATCH body), members_data is built from
+    those user IDs (so response matches the list that was set). Otherwise
+    returns owner plus all BoardMember users.
+    """
     board.refresh_from_db()
     owner = board.owner
-    # Query members directly so response reflects current DB after PATCH update
-    member_users = [
-        m.user
-        for m in BoardMember.objects.filter(board=board).select_related("user")
-    ]
+    if member_ids is not None:
+        users_by_id = {
+            u.pk: u
+            for u in User.objects.filter(pk__in=member_ids)
+        }
+        member_users = [users_by_id[uid] for uid in member_ids if uid in users_by_id]
+    else:
+        member_users = [owner] + [
+            m.user
+            for m in BoardMember.objects.filter(board=board).select_related("user")
+        ]
     return {
         "id": board.id,
         "title": board.title,

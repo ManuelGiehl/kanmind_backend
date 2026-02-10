@@ -118,8 +118,9 @@ class BoardViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        member_ids = serializer.validated_data.get("members")
         return Response(
-            board_patch_response_data(board),
+            board_patch_response_data(board, member_ids=member_ids),
             status=status.HTTP_200_OK,
         )
 
